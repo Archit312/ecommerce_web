@@ -13,10 +13,20 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 //User Api's
-Route::post('/signup', [AuthController::class, 'signup']);
-Route::put('/user/{id}', [AuthController::class, 'update']);
-Route::get('/user/{id}', [AuthController::class, 'show']);
-Route::delete('/user/{id}', [AuthController::class, 'destroy']);
+Route::post('/user/signup', [AuthController::class, 'signup']);
+Route::post('user/login', [AuthController::class, 'login']);
+// Route::put('/user/{id}', [AuthController::class, 'update']);
+// Route::get('/user/{id}', [AuthController::class, 'show']);
+// Route::delete('/user/{id}', [AuthController::class, 'destroy']);
+
+Route::middleware('auth:api')->group(function () {
+    Route::get('user/me', [AuthController::class, 'me']);
+    Route::post('user/logout', [AuthController::class, 'logout']);
+    Route::put('user/{id}', [AuthController::class, 'update']);
+    Route::delete('user/{id}', [AuthController::class, 'destroy']);
+    Route::get('user/{id}', [AuthController::class, 'show']);
+});
+
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -30,7 +40,7 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::post('/products', [ProductController::class, 'store']);
 Route::put('/products/{id}', [ProductController::class, 'update']);
 Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-route::get('/products/search', [ProductController::class, 'search']);//search
+route::get('/products/search', [ProductController::class, 'search']); //search
 
 //Category Api
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -40,11 +50,21 @@ Route::put('/categories/{category_code}', [CategoryController::class, 'update'])
 Route::delete('/categories/{category_code}', [CategoryController::class, 'destroy']); // Delete category by code
 
 //Admin Api Route
-Route::get('/admin', [AdminController::class, 'index']);          // Fetch all admins
-Route::get('/admin/{id}', [AdminController::class, 'show']);      // Fetch a specific admin by ID
-Route::post('/admin', [AdminController::class, 'store']);         // Store a new admin
-Route::put('/admin/{id}', [AdminController::class, 'update']);    // Update an existing admin by ID
-Route::delete('/admin/{id}', [AdminController::class, 'destroy']); // Delete an admin by ID
+// Route::get('/admin', [AdminController::class, 'index']);          // Fetch all admins
+// Route::get('/admin/{id}', [AdminController::class, 'show']);      // Fetch a specific admin by ID
+// Route::post('/admin', [AdminController::class, 'store']);         // Store a new admin
+// Route::put('/admin/{id}', [AdminController::class, 'update']);    // Update an existing admin by ID
+// Route::delete('/admin/{id}', [AdminController::class, 'destroy']); // Delete an admin by ID
+Route::post('/admin/login', [AdminController::class, 'login']); // Admin login
+
+// Protected routes (authentication required)
+Route::middleware('auth:api')->group(function () {
+    Route::get('/admin', [AdminController::class, 'index']);          // Fetch all admins
+    Route::get('/admin/{id}', [AdminController::class, 'show']);      // Fetch a specific admin by ID
+    Route::post('/admin', [AdminController::class, 'store']);         // Store a new admin
+    Route::put('/admin/{id}', [AdminController::class, 'update']);    // Update an existing admin by ID
+    Route::delete('/admin/{id}', [AdminController::class, 'destroy']); // Delete an admin by ID
+});
 
 //Cart Api Route
 Route::post('/cart/add', [CartController::class, 'addToCart']);

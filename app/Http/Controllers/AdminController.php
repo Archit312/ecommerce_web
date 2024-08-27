@@ -6,6 +6,7 @@ use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Tymon\JWTAuth\Facades\JWTAuth; // Import JWTAuth
 
 class AdminController extends Controller
 {
@@ -32,7 +33,7 @@ class AdminController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'admin_email' => 'required|email|unique:admin,admin_email',
+            'admin_email' => 'required|email|unique:admins,admin_email',
             'admin_password' => 'required|min:6',
             'additional_email' => 'nullable|email',
             'terms_and_conditions' => 'nullable|string',
@@ -53,7 +54,39 @@ class AdminController extends Controller
 
         $admin->save();
 
-        return response()->json(['message' => 'Admin created successfully!', 'data' => $admin], 201);
+        // Generate JWT token for the admin
+        $token = JWTAuth::fromUser($admin);
+
+        return response()->json([
+            'message' => 'Admin created successfully!',
+            'data' => $admin,
+            'token' => $token
+        ], 201);
+    }
+
+    // Admin login
+    public function login(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'admin_email' => 'required|email',
+            'admin_password' => 'required|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $credentials = $request->only('admin_email', 'admin_password');
+
+        try {
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return response()->json(['message' => 'Invalid credentials'], 401);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Could not create token'], 500);
+        }
+
+        return response()->json(['token' => $token], 200);
     }
 
     // Update an existing admin by ID
@@ -66,7 +99,7 @@ class AdminController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'admin_email' => 'sometimes|required|email|unique:admin,admin_email,' . $id,
+            'admin_email' => 'sometimes|required|email|unique:admins,admin_email,' . $id,
             'admin_password' => 'sometimes|required|min:6',
             'additional_email' => 'nullable|email',
             'terms_and_conditions' => 'nullable|string',
