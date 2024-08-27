@@ -32,7 +32,7 @@ class ProductController extends Controller
             'product_img_1' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
             'product_img_2' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
             'product_img_3' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
-            'product_delivery_time' => 'required|integer',
+            'product_delivery_time' => 'nullable|integer',
         ]);
 
         // Generate unique product code
@@ -90,7 +90,7 @@ class ProductController extends Controller
             'product_img_1' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
             'product_img_2' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
             'product_img_3' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
-            'product_delivery_time' => 'required|integer',
+            'product_delivery_time' => 'nullable|integer',
         ]);
 
         // Generate unique product code if product_name is changed
