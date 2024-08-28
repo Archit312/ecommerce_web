@@ -8,15 +8,33 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     // Fetch all products
-    public function index()
+    public function getAllProducts(Request $request)
     {
-        return Product::all();
-    }
+        // Decode the incoming JSON payload
+        $filters = $request->json()->all();
 
-    // Fetch a single product
-    public function show($id)
-    {
-        return Product::find($id);
+        // Start a query on the Product model
+        $query = Product::query();
+
+        // Filter by category_code if provided in the JSON
+        if (isset($filters['category_code'])) {
+            $query->where('product_category', $filters['category_code']);
+        }
+
+        // Filter by price range if provided in the JSON
+        if (isset($filters['min_price']) && isset($filters['max_price'])) {
+            $query->whereBetween('product_price', [$filters['min_price'], $filters['max_price']]);
+        } elseif (isset($filters['min_price'])) {
+            $query->where('product_price', '>=', $filters['min_price']);
+        } elseif (isset($filters['max_price'])) {
+            $query->where('product_price', '<=', $filters['max_price']);
+        }
+
+        // Execute the query and get all results (no pagination)
+        $products = $query->get();
+
+        // Return the response
+        return response()->json(['products' => $products]);
     }
 
     // Insert a new product
@@ -74,11 +92,10 @@ class ProductController extends Controller
         return response()->json([$product_create, 201]);
     }
 
-
-    // Update an existing product
-    public function update(Request $request, $id)
+    // Update an existing product using product_code
+    public function update(Request $request, $product_code)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::where('product_code', $product_code)->firstOrFail();
 
         $validatedData = $request->validate([
             'product_name' => 'required|string|max:255',
@@ -92,17 +109,6 @@ class ProductController extends Controller
             'product_img_3' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2000',
             'product_delivery_time' => 'required|integer',
         ]);
-
-        // Generate unique product code if product_name is changed
-        if ($product->product_name !== $request->product_name) {
-            $firstWord = strtok($request->product_name, " ");
-            do {
-                $productCode = $firstWord . rand(1000, 9999);
-            } while (Product::where('product_code', $productCode)->exists());
-
-            $validatedData['product_code'] = $productCode;
-        }
-
         // Handle main image upload
         if ($request->hasFile('product_img_main')) {
             $imageNameMain = $request->product_name . '_main_' . rand(1000, 9999) . '.' . $request->product_img_main->extension();
@@ -131,10 +137,10 @@ class ProductController extends Controller
 
         $product->update($validatedData);
 
-        return $product;
+        return response()->json($product, 200);
     }
 
-    //Search product
+    // Search product
     public function search(Request $request)
     {
         $query = Product::query();
@@ -160,24 +166,20 @@ class ProductController extends Controller
         }
 
         if ($request->has('product_delivery_time')) {
-            $query->where('product_delivery_time', '=', $request->input('product_delivery_time'));
+            $query->where('product_delivery_time', $request->input('product_delivery_time'));
         }
 
-        // Determine the number of products per page, default to 10 if not provided
-        $perPage = $request->input('per_page', 10);
+        $products = $query->get();
 
-        // Paginate the results
-        $products = $query->paginate($perPage);
-
-        return response()->json($products);
+        return response()->json(['products' => $products]);
     }
 
-    // Delete a product
-    public function destroy($id)
+    // Delete a product using product_code
+    public function destroy($product_code)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::where('product_code', $product_code)->firstOrFail();
         $product->delete();
 
-        return response()->json("Deleted Sucessfully", 200);
+        return response()->json("Product Deleted Successfully", 204);
     }
 }

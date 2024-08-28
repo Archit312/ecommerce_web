@@ -6,14 +6,15 @@ use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Tymon\JWTAuth\Facades\JWTAuth; // Import JWTAuth
 
 class AdminController extends Controller
 {
     // Fetch all admin records
     public function index()
     {
-        $admins = Admin::all();
-        return response()->json($admins, 200);
+        $admin = Admin::all();
+        return response()->json($admin, 200);
     }
 
     // Fetch a specific admin by ID
@@ -53,7 +54,39 @@ class AdminController extends Controller
 
         $admin->save();
 
-        return response()->json(['message' => 'Admin created successfully!', 'data' => $admin], 201);
+        // Generate JWT token for the admin
+        $token = JWTAuth::fromUser($admin);
+
+        return response()->json([
+            'message' => 'Admin created successfully!',
+            'data' => $admin,
+            'token' => $token
+        ], 201);
+    }
+
+    // Admin login
+    public function login(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'admin_email' => 'required|email',
+            'admin_password' => 'required|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $credentials = $request->only('admin_email', 'admin_password');
+
+        try {
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return response()->json(['message' => 'Invalid credentials'], 401);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Could not create token'], 500);
+        }
+
+        return response()->json(['token' => $token], 200);
     }
 
     // Update an existing admin by ID

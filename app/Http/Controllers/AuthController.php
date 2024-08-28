@@ -5,25 +5,29 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Tymon\JWTAuth\Facades\JWTAuth;
+use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthController extends Controller
 {
+    // Method for user signup
     public function signup(Request $request)
     {
-        // Validate the request
+        // Validate the request data
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'contact_no' => 'required|string|min:10',
+            'password' => 'required|string|min:8',
+            'contact_no' => 'required|string|max:15',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        // Create the user
+        // Create a new user
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -31,42 +35,37 @@ class AuthController extends Controller
             'contact_no' => $request->contact_no,
         ]);
 
+        // Generate JWT token for the user
+        $token = JWTAuth::fromUser($user);
+
         return response()->json([
-            'message' => 'User successfully registered',
-            'user' => $user
+            'message' => 'User registered successfully',
+            'user' => $user,
+            'token' => $token
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    // Method for user login
+    public function login(Request $request)
     {
-        // Find the user by ID
-        $user = User::find($id);
+        // Validate the login credentials
+        $credentials = $request->only('email', 'password');
 
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+        try {
+            // Attempt to verify the credentials and create a token
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return response()->json(['error' => 'Invalid credentials'], 401);
+            }
+        } catch (JWTException $e) {
+            // Something went wrong whilst attempting to encode the token
+            return response()->json(['error' => 'Could not create token'], 500);
         }
 
-        // Validate the request data, including contact_no
-        $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
-            'contact_no' => 'sometimes|required|string|max:15', // Add validation for contact_no
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
-
-        // Update the user's data, excluding the password
-        $user->name = $request->get('name', $user->name);
-        $user->email = $request->get('email', $user->email);
-        $user->contact_no = $request->get('contact_no', $user->contact_no); // Update contact_no
-
-        $user->save();
-
-        return response()->json(['message' => 'User updated successfully', 'user' => $user], 200);
+        // Return the token if successful
+        return response()->json(['token' => $token]);
     }
 
+    // Method for fetching user details
     public function show($id)
     {
         // Find the user by ID
@@ -82,6 +81,38 @@ class AuthController extends Controller
         return response()->json(['user' => $user], 200);
     }
 
+    // Method for updating user data except the password
+    public function update(Request $request, $id)
+    {
+        // Find the user by ID
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Validate the request data, including contact_no
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
+            'contact_no' => 'sometimes|required|string|max:15',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Update the user's data, excluding the password
+        $user->name = $request->get('name', $user->name);
+        $user->email = $request->get('email', $user->email);
+        $user->contact_no = $request->get('contact_no', $user->contact_no);
+
+        $user->save();
+
+        return response()->json(['message' => 'User updated successfully', 'user' => $user], 200);
+    }
+
+    // Method for deleting a user
     public function destroy($id)
     {
         // Find the user by ID
@@ -96,24 +127,26 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'User deleted successfully'], 200);
     }
-    
-    public function login(Request $request)
+
+    // Method for user logout
+    public function logout(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+        try {
+            JWTAuth::invalidate(JWTAuth::getToken());
+            return response()->json(['message' => 'User successfully logged out']);
+        } catch (JWTException $e) {
+            return response()->json(['error' => 'Failed to logout, please try again'], 500);
         }
+    }
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+    // Method to get the authenticated user details
+    public function me(Request $request)
+    {
+        $user = auth::user();
+        if ($user) {
+            return response()->json($user);
+        } else {
+            return response()->json(['error' => 'User not authenticated'], 401);
         }
-
-        return response()->json(['message' => 'Login successful']);
     }
 }
